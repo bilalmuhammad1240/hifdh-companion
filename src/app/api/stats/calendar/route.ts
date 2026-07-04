@@ -14,17 +14,24 @@ export async function GET(req: NextRequest) {
   
   
   
-  
-  const dailyPlans: {
+  type DailyPlan = {
   date: Date;
-  completionStatus: string;
+  completionStatus: 'COMPLETED' | 'PARTIAL' | 'MISSED' | string;
   isRestDay: boolean;
-}[] = await prisma.dailyPlan.findMany({
+};
+  
+  
+  
+  
+  
+  
+  
+  const dailyPlans = await prisma.dailyPlan.findMany({
     where: { planId, date: { gte: startDate, lte: endDate } },
     select: { date: true, completionStatus: true, isRestDay: true },
   });
 
-  const days = dailyPlans.map((dp) => {
+  const days = dailyPlans.map((dp: dailyPlan) => {
     let status: string;
     if (dp.isRestDay)                         status = 'rest';
     else if (dp.completionStatus === 'COMPLETED') status = 'complete';
