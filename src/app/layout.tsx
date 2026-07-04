@@ -1,17 +1,13 @@
-import type { Metadata, Viewport } from 'next';
+import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Hifdh Companion',
-  description: 'Sistema inteligente para memorização do Al-Qur\'an',
+  description: "Sistema inteligente para memorização do Al-Qur'an",
+  themeColor: '#1B5E42',
+  viewport: 'width=device-width, initial-scale=1',
   manifest: '/manifest.json',
   icons: { icon: '/icon.svg' },
-};
-
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  themeColor: '#1B5E42',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

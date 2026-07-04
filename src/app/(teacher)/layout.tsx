@@ -1,3 +1,4 @@
+import React from 'react';
 import Link from 'next/link';
 import { Users, LayoutDashboard, ClipboardList, Bell } from 'lucide-react';
 

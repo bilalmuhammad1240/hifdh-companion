@@ -11,27 +11,13 @@ export async function GET(req: NextRequest) {
 
   const startDate = new Date(year, month - 1, 1);
   const endDate   = new Date(year, month, 0, 23, 59, 59);
-  
-  
-  
-  type DailyPlan = {
-  date: Date;
-  completionStatus: 'COMPLETED' | 'PARTIAL' | 'MISSED' | string;
-  isRestDay: boolean;
-};
-  
-  
-  
-  
-  
-  
-  
+
   const dailyPlans = await prisma.dailyPlan.findMany({
     where: { planId, date: { gte: startDate, lte: endDate } },
     select: { date: true, completionStatus: true, isRestDay: true },
   });
 
-  const days = dailyPlans.map((dp: DailyPlan) => {
+  const days = dailyPlans.map((dp) => {
     let status: string;
     if (dp.isRestDay)                         status = 'rest';
     else if (dp.completionStatus === 'COMPLETED') status = 'complete';
@@ -44,34 +30,6 @@ export async function GET(req: NextRequest) {
       status,
     };
   });
-  
-  
-  
-  
-  
-  /**const days = dailyPlans.map((dp: {
-  date: Date;
-  completionStatus: string;
-  isRestDay: boolean;
-}) => {
-  let status: string;
-
-  if (dp.isRestDay) status = 'rest';
-  else if (dp.completionStatus === 'COMPLETED') status = 'complete';
-  else if (dp.completionStatus === 'PARTIAL') status = 'partial';
-  else if (dp.completionStatus === 'MISSED') status = 'missed';
-  else status = 'future';
-
-  return {
-    date: dp.date.toISOString().split('T')[0],
-    status,
-  };
-});*/
-  
-  
-  
-  
-  
 
   return NextResponse.json({ days });
 }

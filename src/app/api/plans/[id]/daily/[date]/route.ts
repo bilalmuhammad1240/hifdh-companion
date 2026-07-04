@@ -3,10 +3,10 @@ import { container } from '@/lib/container';
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string; date: string }> }
+  { params }: { params: { id: string; date: string } }
 ) {
   try {
-    const { id, date } = await params;
+    const { id, date } = params;
     const parsedDate = date === 'today' ? new Date() : new Date(date);
 
     if (Number.isNaN(parsedDate.getTime())) {

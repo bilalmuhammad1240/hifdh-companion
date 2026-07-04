@@ -9,10 +9,10 @@ const memorizeSchema = z.object({
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string; number: string }> }
+  { params }: { params: { id: string; number: string } }
 ) {
   try {
-    const { id, number } = await params;
+    const { id, number } = params;
     const pageNumber = Number(number);
     if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > 604) {
       return NextResponse.json({ error: 'Número de página inválido' }, { status: 400 });

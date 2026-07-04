@@ -7,7 +7,7 @@ import { TeacherRatingForm } from '@/components/session/TeacherRatingForm';
 import { PageStatusBadge } from '@/components/shared/PageStatusBadge';
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }
 
 async function getStudentData(profileId: string) {
@@ -41,7 +41,7 @@ async function getStudentData(profileId: string) {
 }
 
 export default async function StudentDetailPage({ params }: PageProps) {
-  const { id } = await params;
+  const { id } = params;
   const data = await getStudentData(id).catch(() => null);
 
   if (!data) {
@@ -74,7 +74,6 @@ export default async function StudentDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Progress */}
       <Card>
         <CardHeader><CardTitle>Progresso</CardTitle></CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -86,7 +85,6 @@ export default async function StudentDetailPage({ params }: PageProps) {
         </CardContent>
       </Card>
 
-      {/* Today's plan */}
       {todayPlan && (
         <Card>
           <CardHeader>
@@ -115,7 +113,6 @@ export default async function StudentDetailPage({ params }: PageProps) {
         </Card>
       )}
 
-      {/* Teacher rating form */}
       {plan && (
         <TeacherRatingForm
           planId={plan.id}
@@ -124,7 +121,6 @@ export default async function StudentDetailPage({ params }: PageProps) {
         />
       )}
 
-      {/* Weakest pages */}
       {weakPages.length > 0 && (
         <Card>
           <CardHeader><CardTitle>Páginas mais fracas</CardTitle></CardHeader>

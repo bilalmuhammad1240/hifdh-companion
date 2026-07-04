@@ -3,10 +3,9 @@ import { getPagesForJuz } from '@/infrastructure/data/generateMushafPages';
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ number: string }> }
+  { params }: { params: { number: string } }
 ) {
-  const { number } = await params;
-  const juz = Number(number);
+  const juz = Number(params.number);
   if (!Number.isInteger(juz) || juz < 1 || juz > 30) {
     return NextResponse.json({ error: "Juz' inválido" }, { status: 400 });
   }
