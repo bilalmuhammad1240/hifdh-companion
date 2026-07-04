@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     select: { date: true, completionStatus: true, isRestDay: true },
   });
 
-  const days = dailyPlans.map((dp: dailyPlan) => {
+  const days = dailyPlans.map((dp: DailyPlan) => {
     let status: string;
     if (dp.isRestDay)                         status = 'rest';
     else if (dp.completionStatus === 'COMPLETED') status = 'complete';
