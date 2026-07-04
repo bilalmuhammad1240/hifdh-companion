@@ -1,0 +1,616 @@
+// ============================================================
+// HIFDH COMPANION — SCHEMA DO BANCO DE DADOS
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// USUÁRIOS E AUTENTICAÇÃO
+// ============================================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      Role     @default(STUDENT)
+  avatarUrl String?
+  timezone  String   @default("UTC")
+  locale    String   @default("pt-BR")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  studentProfile StudentProfile?
+  teacherProfile TeacherProfile?
+  adminProfile   AdminProfile?
+  parentLinks    ParentStudentLink[] @relation("ParentLinks")
+
+  sessions Session[]
+  accounts Account[]
+
+  notifications NotificationSettings?
+
+  @@index([email])
+  @@index([role])
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+  PARENT
+}
+
+// Better Auth tables
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId        String
+  accountId         String
+  accessToken       String?
+  refreshToken      String?
+  passwordHash      String?
+  expiresAt         DateTime?
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model AdminProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isSuperAdmin Boolean @default(false)
+}
+
+model StudentProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  dateOfBirth DateTime?
+  gender      Gender?
+
+  madrassahId String?
+  madrassah   Madrassah?      @relation(fields: [madrassahId], references: [id])
+  teacherId   String?
+  teacher     TeacherProfile? @relation(fields: [teacherId], references: [id])
+
+  hifdhPlans HifdhPlan[]
+
+  currentStreak  Int       @default(0)
+  longestStreak  Int       @default(0)
+  lastStudyDate  DateTime?
+  totalStudyDays Int       @default(0)
+
+  achievements Achievement[]
+  parentLinks  ParentStudentLink[]
+
+  @@index([madrassahId])
+  @@index([teacherId])
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+model TeacherProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  ijazahCertified Boolean  @default(false)
+  ijazahChain     String?
+  specializations String[]
+
+  madrassahId String?
+  madrassah   Madrassah? @relation(fields: [madrassahId], references: [id])
+
+  students StudentProfile[]
+  reviews  TeacherReview[]
+
+  @@index([madrassahId])
+}
+
+// ============================================================
+// INSTITUIÇÕES
+// ============================================================
+
+model Madrassah {
+  id      String  @id @default(cuid())
+  name    String
+  country String
+  city    String?
+  address String?
+  logoUrl String?
+
+  hifdhMethod HifdhMethod @default(SABAQ_SABQI_MANZIL)
+
+  students StudentProfile[]
+  teachers TeacherProfile[]
+
+  defaultConfig Json?
+
+  inviteCode String @unique @default(cuid())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([country])
+}
+
+enum HifdhMethod {
+  SABAQ_SABQI_MANZIL
+  PANIPATI
+  MOROCCAN_LAUH
+  SAUDI_TAHFIDH
+  OTTOMAN
+  CUSTOM
+}
+
+// ============================================================
+// PLANO DE HIFDH
+// ============================================================
+
+model HifdhPlan {
+  id        String @id @default(cuid())
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  name   String     @default("Meu Plano de Hifdh")
+  status PlanStatus @default(ACTIVE)
+
+  goalJuzStart  Int
+  goalJuzEnd    Int
+  goalPageStart Int
+  goalPageEnd   Int
+
+  startDate     DateTime
+  targetEndDate DateTime
+  actualEndDate DateTime?
+
+  config HifdhConfig?
+
+  pages    PageProgress[]
+  sessions StudySession[]
+
+  dailyPlans    DailyPlan[]
+  replanHistory ReplanEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId, status])
+}
+
+enum PlanStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ABANDONED
+}
+
+model HifdhConfig {
+  id     String    @id @default(cuid())
+  planId String    @unique
+  plan   HifdhPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  newPagesPerDay Float @default(1.0)
+  maxSabqiPages  Int   @default(10)
+  maxManzilPages Int   @default(20)
+
+  studyDays Int[] @default([2, 3, 4, 5, 6])
+  restDays  Int[] @default([1, 7])
+
+  weeklyReviewDay Int @default(1)
+
+  preferredStudyTime     String?
+  sessionDurationMinutes Int     @default(60)
+
+  method HifdhMethod @default(SABAQ_SABQI_MANZIL)
+
+  pauseSabaqThreshold     Float @default(0.3)
+  minimumMasteryToAdvance Int   @default(3)
+
+  notifications       Boolean @default(true)
+  notifyBeforeMinutes Int     @default(30)
+
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// PROGRESSO POR PÁGINA
+// ============================================================
+
+model PageProgress {
+  id     String    @id @default(cuid())
+  planId String
+  plan   HifdhPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  pageNumber Int
+  juzNumber  Int
+  hizbNumber Int
+  rubNumber  Int
+  surahStart Int
+  ayahStart  Int
+  surahEnd   Int
+  ayahEnd    Int
+
+  status       PageStatus   @default(NOT_STARTED)
+  masteryLevel Int          @default(0)
+  category     PageCategory @default(NOT_MEMORIZED)
+
+  memorizedAt    DateTime?
+  lastReviewedAt DateTime?
+  nextReviewDue  DateTime?
+
+  easeFactor    Float @default(2.5)
+  intervalDays  Int   @default(1)
+  repetitions   Int   @default(0)
+
+  totalReviews             Int @default(0)
+  totalErrors               Int @default(0)
+  averageRecitationSeconds  Int @default(0)
+
+  teacherApproved   Boolean             @default(false)
+  lastTeacherRating TeacherRatingEnum?
+
+  isMutashabih Boolean @default(false)
+  hasErrors    Boolean @default(false)
+
+  studentNotes String?
+  teacherNotes String?
+
+  reviews ReviewRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planId, pageNumber])
+  @@index([planId, status])
+  @@index([planId, nextReviewDue])
+  @@index([planId, masteryLevel])
+  @@index([planId, category])
+}
+
+enum PageStatus {
+  NOT_STARTED
+  NEW
+  LEARNING
+  DEVELOPING
+  GOOD
+  EXCELLENT
+  NEEDS_REVIEW
+  FORGOTTEN
+}
+
+enum PageCategory {
+  NOT_MEMORIZED
+  SABAQ
+  SABQI
+  MANZIL
+  REVIEW_COMPLETE
+}
+
+enum TeacherRatingEnum {
+  EXCELLENT
+  GOOD
+  ACCEPTABLE
+  REPEAT_TOMORROW
+  REDO
+  RESTART
+}
+
+// ============================================================
+// REGISTRO DE REVISÕES
+// ============================================================
+
+model ReviewRecord {
+  id             String       @id @default(cuid())
+  pageProgressId String
+  pageProgress   PageProgress @relation(fields: [pageProgressId], references: [id], onDelete: Cascade)
+  planId         String
+
+  reviewType ReviewType
+
+  studentRating     Int
+  errorCount        Int   @default(0)
+  errorDetails      Json?
+  recitationSeconds Int?
+
+  teacherId         String?
+  teacher           TeacherProfile?    @relation(fields: [teacherId], references: [id])
+  teacherRating     TeacherRatingEnum?
+  teacherNotes      String?
+  teacherReviewedAt DateTime?
+
+  previousInterval   Int
+  newInterval        Int
+  previousMastery    Int
+  newMastery         Int
+  previousEaseFactor Float
+  newEaseFactor      Float
+
+  reviewedAt DateTime @default(now())
+
+  @@index([pageProgressId, reviewedAt])
+  @@index([planId, reviewedAt])
+}
+
+enum ReviewType {
+  SABAQ_INITIAL
+  SABQI_DAILY
+  MANZIL_CYCLE
+  WEEKLY_REVIEW
+  MONTHLY_REVIEW
+  URGENT_RECOVERY
+  TEACHER_SESSION
+  SELF_CHECK
+}
+
+// ============================================================
+// SESSÃO DE ESTUDO
+// ============================================================
+
+model StudySession {
+  id          String     @id @default(cuid())
+  planId      String
+  plan        HifdhPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  dailyPlanId String?
+  dailyPlan   DailyPlan? @relation(fields: [dailyPlanId], references: [id])
+
+  date            DateTime
+  startedAt       DateTime
+  endedAt         DateTime?
+  durationSeconds Int?
+
+  sabaqCompleted  Boolean @default(false)
+  sabqiCompleted  Boolean @default(false)
+  manzilCompleted Boolean @default(false)
+
+  pagesMemorized Int[]
+  pagesReviewed  Int[]
+
+  totalErrors     Int    @default(0)
+  averageAccuracy Float?
+
+  studentMood StudentMood?
+  notes       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([planId, date])
+}
+
+enum StudentMood {
+  EXCELLENT
+  GOOD
+  NEUTRAL
+  TIRED
+  UNWELL
+}
+
+// ============================================================
+// PLANO DIÁRIO GERADO PELO ENGINE
+// ============================================================
+
+model DailyPlan {
+  id     String    @id @default(cuid())
+  planId String
+  plan   HifdhPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  date DateTime
+
+  sabaqPages  Int[]
+  sabqiPages  Int[]
+  manzilPages Int[]
+  urgentPages Int[]
+
+  isSabaqBlocked  Boolean @default(false)
+  isWeeklyReview  Boolean @default(false)
+  isMonthlyReview Boolean @default(false)
+  isRestDay       Boolean @default(false)
+
+  explanation String
+  warnings    String[]
+
+  estimatedMinutes Int
+  goalPercentage   Float
+
+  completionStatus DailyCompletionStatus @default(PENDING)
+  sessions         StudySession[]
+
+  generatedAt DateTime @default(now())
+
+  @@unique([planId, date])
+  @@index([planId, date])
+}
+
+enum DailyCompletionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  PARTIAL
+  MISSED
+}
+
+// ============================================================
+// AVALIAÇÕES DO PROFESSOR
+// ============================================================
+
+model TeacherReview {
+  id        String         @id @default(cuid())
+  teacherId String
+  teacher   TeacherProfile @relation(fields: [teacherId], references: [id])
+  studentId String
+  planId    String
+
+  date DateTime @default(now())
+
+  overallRating TeacherRatingEnum
+
+  pageEvaluations Json
+
+  decisions Json?
+
+  notes String?
+
+  approvedSabaqPages Int[]
+
+  @@index([studentId, date])
+  @@index([teacherId, date])
+}
+
+// ============================================================
+// EVENTOS DE REPLANEJAMENTO
+// ============================================================
+
+model ReplanEvent {
+  id     String    @id @default(cuid())
+  planId String
+  plan   HifdhPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  trigger     String
+  description String
+  impact      Json
+
+  previousConfig Json
+  newConfig      Json
+
+  triggeredBy String?
+  triggeredAt DateTime @default(now())
+
+  @@index([planId, triggeredAt])
+}
+
+// ============================================================
+// ESTATÍSTICAS (CACHE)
+// ============================================================
+
+model StudentStats {
+  id     String  @id @default(cuid())
+  studentId String @unique
+  planId String?
+
+  totalPagesMemorized Int   @default(0)
+  totalJuzCompleted   Int   @default(0)
+  percentComplete     Float @default(0)
+
+  averageMasteryLevel Float @default(0)
+  overallAccuracy     Float @default(0)
+
+  totalStudySeconds     Int   @default(0)
+  averageSessionMinutes Float @default(0)
+
+  currentStreak Int @default(0)
+  longestStreak Int @default(0)
+
+  projectedEndDate DateTime?
+  daysAheadBehind  Int       @default(0)
+
+  lastComputedAt DateTime @default(now())
+
+  @@index([studentId])
+}
+
+// ============================================================
+// GAMIFICAÇÃO
+// ============================================================
+
+model Achievement {
+  id        String         @id @default(cuid())
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  type        AchievementType
+  title       String
+  description String
+  iconKey     String
+
+  earnedAt DateTime @default(now())
+  value    Int?
+
+  @@index([studentId])
+}
+
+enum AchievementType {
+  STREAK_7
+  STREAK_30
+  STREAK_100
+  JUZ_1
+  JUZ_5
+  JUZ_10
+  JUZ_15
+  JUZ_20
+  JUZ_30
+  ACCURACY_90
+  ZERO_ERRORS
+  EARLY_BIRD
+  SPEED_REVIEW
+  TEACHER_EXCELLENCE
+}
+
+// ============================================================
+// NOTIFICAÇÕES
+// ============================================================
+
+model NotificationSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  enabled Boolean @default(true)
+
+  dailyReminder       Boolean @default(true)
+  dailyReminderTime   String  @default("05:30")
+  sabaqReminder       Boolean @default(true)
+  reviewReminder      Boolean @default(true)
+  teacherSessionAlert Boolean @default(true)
+  weeklyReportAlert   Boolean @default(true)
+  streakAlert         Boolean @default(true)
+
+  pushEnabled  Boolean @default(true)
+  emailEnabled Boolean @default(false)
+}
+
+// ============================================================
+// LINKS PAIS → ALUNOS
+// ============================================================
+
+model ParentStudentLink {
+  id        String         @id @default(cuid())
+  parentId  String
+  parent    User           @relation("ParentLinks", fields: [parentId], references: [id])
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  canViewProgress   Boolean @default(true)
+  canViewStats      Boolean @default(true)
+  canViewErrors     Boolean @default(false)
+  canContactTeacher Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([parentId, studentId])
+}
