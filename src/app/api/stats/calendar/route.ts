@@ -11,13 +11,20 @@ export async function GET(req: NextRequest) {
 
   const startDate = new Date(year, month - 1, 1);
   const endDate   = new Date(year, month, 0, 23, 59, 59);
-
-  const dailyPlans = await prisma.dailyPlan.findMany({
+  
+  
+  
+  
+  const dailyPlans: {
+  date: Date;
+  completionStatus: string;
+  isRestDay: boolean;
+}[] = await prisma.dailyPlan.findMany({
     where: { planId, date: { gte: startDate, lte: endDate } },
     select: { date: true, completionStatus: true, isRestDay: true },
   });
 
-  /**const days = dailyPlans.map((dp) => {
+  const days = dailyPlans.map((dp) => {
     let status: string;
     if (dp.isRestDay)                         status = 'rest';
     else if (dp.completionStatus === 'COMPLETED') status = 'complete';
@@ -29,13 +36,13 @@ export async function GET(req: NextRequest) {
       date: dp.date.toISOString().split('T')[0],
       status,
     };
-  });*/
+  });
   
   
   
   
   
-  const days = dailyPlans.map((dp: {
+  /**const days = dailyPlans.map((dp: {
   date: Date;
   completionStatus: string;
   isRestDay: boolean;
@@ -52,7 +59,7 @@ export async function GET(req: NextRequest) {
     date: dp.date.toISOString().split('T')[0],
     status,
   };
-});
+});*/
   
   
   
